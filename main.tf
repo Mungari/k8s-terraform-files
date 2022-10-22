@@ -1,5 +1,9 @@
 terraform {
   required_providers {
+    cloudinit = {
+      source = "hashicorp/cloudinit"
+      version = "2.2.0"
+    }
     libvirt = {
       source = "dmacvicar/libvirt"
       version = "0.7.0"
@@ -22,6 +26,10 @@ resource "libvirt_volume" "centos"{
     format = "qcow2"
 }
 
+data "template_file" "user_data" {
+  template = "${file("${path.module}/configs/users_and_groups.cfg")}"
+}
+
 locals {
   k8s-nodes = {
   "k8s-master" = {disk = "k8s-master.qcow2"},
@@ -30,6 +38,13 @@ locals {
   }
 }
 
+resource "libvirt_cloudinit_disk" "commoninit" {
+  for_each = local.k8s-nodes
+
+  name = format("%s%s",each.key,"commoninit.iso")
+  pool = "default"
+  user_data  = "${data.template_file.user_data.rendered}"
+}
 
 resource "libvirt_domain" "k8s-nodes"{
     for_each = local.k8s-nodes
@@ -43,16 +58,10 @@ resource "libvirt_domain" "k8s-nodes"{
     disk {
         volume_id = "${libvirt_volume.centos[each.value.disk].id}"
     }
+    cloudinit = "${libvirt_cloudinit_disk.commoninit[each.key].id}"
     console {
         type = "pty"
         target_type = "serial"
         target_port = "0"
     }
 }
-
-# output "ip" {
-#     #for_each = local.k8s-nodes
-#     value = toset([
-#         for k8s in libvirt_domain.k8s-nodes : "${k8s.network_interface.0.addresses.0}"
-#     ])
-# }
