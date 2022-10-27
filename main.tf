@@ -51,7 +51,7 @@ resource "libvirt_domain" "k8s-nodes"{
 
     name = each.key
     memory = "2048"
-    vcpu = "1" # Consider upping to 2
+    vcpu = "2" # Consider upping to 2
     network_interface {
         network_name = "default" # List networks with virsh net-list
     }
