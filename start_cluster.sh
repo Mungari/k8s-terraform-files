@@ -31,10 +31,10 @@ create_cluster() {
   echo "your cluster IPs are:"
   for instance in $(sudo virsh list --all | grep k8s | awk {'print $2'} | sort); do
     echo "$instance"
-    for instance in $(sudo virsh list --all | grep k8s | awk {'print $2'} | sort); do
-    echo "$instance"
+    ssh_string = ssh -i $CFG_PATH/root root@$host
+    if [[ $instance == *"k8s"* ]]; then
     host=$(sudo virsh domifaddr $instance | grep -ohe "192.*" | cut -d"/" -f1)
-    ssh -i $CFG_PATH/root root@$host cat <<EOF | tee /etc/yum.repos.d/kubernetes.repo
+    $ssh_string cat <<EOF | tee /etc/yum.repos.d/kubernetes.repo
       [kubernetes]
       name=Kubernetes
       baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-\$basearch
@@ -43,20 +43,26 @@ create_cluster() {
       gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
       exclude=kubelet kubeadm kubectl 
 EOF
-    ssh -i $CFG_PATH/root root@$host setenforce 0
-    ssh -i $CFG_PATH/root root@$host sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config
-    ssh -i $CFG_PATH/root root@$host yum install docker -y
-    ssh -i $CFG_PATH/root root@$host yum install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
-    ssh -i $CFG_PATH/root root@$host systemctl enable --now kubelet
+    $ssh_string setenforce 0
+    $ssh_string sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config
+    $ssh_string yum install docker -y
+    $ssh_string yum install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
+    $ssh_string systemctl enable --now kubelet
     case $instance in
     *"master"*)
-      ssh -i $CFG_PATH/root root@$host kubeadm-init --pod-network-cidr 10.10.
-      token = 
+      $ssh_string kubeadm-init --pod-network-cidr 10.10.14.0/24
+      #token_hash = $ssh_string openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | \
+      #openssl dgst -sha256 -hex | sed 's/^.* //'
+      #k8s_master_host = $host 
+      token = $ssh_string -c "kubeadm token list | awk 'NR == 2 {print $1}'"
+      join_command = $ssh_string kubeadm token create $token** --print-join-command
+      echo "$join_command"
       ;;
     *"worker"*)
       echo "ansible_host=$(sudo virsh domifaddr $instance | grep -ohe "192.*" | cut -d"/" -f1)" >> $ANSIBLE_HOST_FILE_PATH
       ;;
       esac
+  fi
   done
 }
 echo "Checking if cluster is up and running..."

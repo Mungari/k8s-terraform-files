@@ -19,7 +19,7 @@ provider "libvirt" {
 
 # Create disk that contains image
 resource "libvirt_volume" "centos"{
-    for_each = toset(["k8s-master.qcow2", "k8s-worker-1.qcow2","k8s-worker-2.qcow2"])
+    for_each = toset(["k8s-master.qcow2", "k8s-worker-1.qcow2","k8s-worker-2.qcow2","jenkins.qcow2"])
     name = each.key
     pool = "default"
     source = "./images/centos-7.qcow2" #yoink from cloud
@@ -34,7 +34,8 @@ locals {
   k8s-nodes = {
   "k8s-master" = {disk = "k8s-master.qcow2"},
   "k8s-worker-1" = {disk = "k8s-worker-1.qcow2"},
-  "k8s-worker-2" = {disk = "k8s-worker-2.qcow2"}
+  "k8s-worker-2" = {disk = "k8s-worker-2.qcow2"},
+  "jenkins" = {disk = "jenkins.qcow2"}
   }
 }
 
